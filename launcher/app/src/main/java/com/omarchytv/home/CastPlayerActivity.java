@@ -80,6 +80,7 @@ public final class CastPlayerActivity extends Activity implements CastRouter.Sur
     @Override
     protected void onCreate(Bundle b) {
         super.onCreate(b);
+        Fonts.install(this);
         Theme t = Theme.cur();
         id = getIntent().getStringExtra(CastRouter.EXTRA_ID);
         kind = getIntent().getStringExtra(CastRouter.EXTRA_KIND);

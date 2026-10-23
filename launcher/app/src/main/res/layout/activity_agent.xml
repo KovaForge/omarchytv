@@ -1,6 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
 <!-- "> agents": one floating Hyprland window, terminal style: agent tabs, live steps + transcript, "> " input line. -->
 <FrameLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:tools="http://schemas.android.com/tools"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
     android:background="@color/tn_bg">
@@ -19,7 +20,7 @@
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:textSize="18sp"
-            android:fontFamily="@font/caskaydia" />
+            />
 
         <LinearLayout
             android:id="@+id/agentTabs"
@@ -43,7 +44,7 @@
                 android:textColor="@color/tn_fg"
                 android:textSize="15sp"
                 android:lineSpacingMultiplier="1.2"
-                android:fontFamily="@font/caskaydia" />
+                />
         </ScrollView>
 
         <LinearLayout
@@ -58,7 +59,7 @@
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
                 android:textSize="16sp"
-                android:fontFamily="@font/caskaydia" />
+                />
 
             <EditText
                 android:id="@+id/agentInput"
@@ -77,9 +78,10 @@
                 android:textColor="@color/tn_fg"
                 android:textColorHint="@color/text_dim"
                 android:textSize="16sp"
-                android:fontFamily="@font/caskaydia"
+               
                 android:hint="@string/agent_input_hint"
-                android:importantForAutofill="no" />
+                android:importantForAutofill="no"
+                tools:targetApi="26" />
 
             <TextView
                 android:id="@+id/agentMic"
@@ -93,7 +95,7 @@
                 android:paddingBottom="4dp"
                 android:textColor="@color/tn_fg"
                 android:textSize="14sp"
-                android:fontFamily="@font/caskaydia" />
+                />
         </LinearLayout>
 
         <TextView
@@ -103,6 +105,6 @@
             android:layout_marginTop="10dp"
             android:textColor="@color/text_dim"
             android:textSize="13sp"
-            android:fontFamily="@font/caskaydia" />
+            />
     </LinearLayout>
 </FrameLayout>

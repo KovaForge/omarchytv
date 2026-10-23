@@ -148,7 +148,9 @@ public class AskActivity extends Activity implements OmarchyLink.Listener {
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
+        Fonts.install(this);
         setContentView(R.layout.activity_ask);
+        Fonts.apply(getWindow().getDecorView());
         Theme.apply(getWindow().getDecorView());
         log = findViewById(R.id.askLog);
         hint = findViewById(R.id.askHint);

@@ -193,7 +193,8 @@ final class LauncherConfig {
             if (o instanceof String && !((String) o).isEmpty()) {
                 String s = ((String) o).trim();
                 if (s.matches("\\d+")) return parseTime(Long.parseLong(s));
-                return java.time.OffsetDateTime.parse(s).toInstant().toEpochMilli();
+                Long ms = com.omarchytv.home.link.Iso.offsetMillis(s);
+                return ms == null ? 0L : ms;
             }
         } catch (Exception ignored) {
         }

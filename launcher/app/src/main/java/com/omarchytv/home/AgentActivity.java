@@ -81,7 +81,9 @@ public class AgentActivity extends Activity implements OmarchyLink.Listener {
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
+        Fonts.install(this);
         setContentView(R.layout.activity_agent);
+        Fonts.apply(getWindow().getDecorView());
         Theme.apply(getWindow().getDecorView());
         header = findViewById(R.id.agentHeader);
         log = findViewById(R.id.agentLog);
@@ -288,7 +290,7 @@ public class AgentActivity extends Activity implements OmarchyLink.Listener {
             tabs.removeAllViews();
             for (Agents.Agent g : data.list) {
                 TextView t = new TextView(this);
-                t.setTypeface(getResources().getFont(R.font.caskaydia));
+                t.setTypeface(Fonts.get(this));
                 t.setTextSize(14);
                 t.setPadding((int) (10 * d), (int) (4 * d), (int) (10 * d), (int) (4 * d));
                 t.setFocusable(true);

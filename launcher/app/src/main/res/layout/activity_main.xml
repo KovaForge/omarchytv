@@ -32,7 +32,7 @@
         android:alpha="0"
         android:textColor="@color/tn_fg"
         android:textSize="18sp"
-        android:fontFamily="@font/caskaydia"
+       
 
         android:includeFontPadding="false"
         android:singleLine="true" />
@@ -95,7 +95,7 @@
                         android:textColor="@drawable/pill_text"
                         android:duplicateParentState="true"
                         android:textSize="14sp"
-                        android:fontFamily="@font/caskaydia"
+                       
                         android:textStyle="bold" />
                 </FrameLayout>
 
@@ -123,7 +123,7 @@
                     android:textColor="@color/tn_fg"
                     android:textSize="20sp"
                     android:includeFontPadding="false"
-                    android:fontFamily="@font/caskaydia"
+                   
                     android:textStyle="bold" />
             </LinearLayout>
 
@@ -194,7 +194,7 @@
                     android:shadowRadius="4"
                     android:textColor="@color/tn_green"
                     android:textSize="14sp"
-                    android:fontFamily="@font/caskaydia"
+                   
  />
 
                 <View
@@ -258,7 +258,7 @@
         android:background="@drawable/hint_bg"
         android:textColor="@color/tn_orange"
         android:textSize="14sp"
-        android:fontFamily="@font/caskaydia"
+       
         android:visibility="gone" />
 
     <!-- The single floating Hyprland-style focus border that springs between tiles. -->

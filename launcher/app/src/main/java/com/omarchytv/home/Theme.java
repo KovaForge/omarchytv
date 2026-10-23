@@ -324,7 +324,8 @@ final class Theme {
         if (d instanceof android.graphics.drawable.ColorDrawable) {
             android.graphics.drawable.ColorDrawable c = (android.graphics.drawable.ColorDrawable) d;
             c.setColor(map(c.getColor()));
-        } else if (d instanceof android.graphics.drawable.GradientDrawable) {
+        } else if (d instanceof android.graphics.drawable.GradientDrawable && android.os.Build.VERSION.SDK_INT >= 24) {
+            // GradientDrawable.getColor() is API 24. On Android 6 a shape keeps the colour from XML.
             android.graphics.drawable.GradientDrawable g = (android.graphics.drawable.GradientDrawable) d;
             android.content.res.ColorStateList c = g.getColor();
             if (c != null) g.setColor(c.isStateful() ? stateful(c) : android.content.res.ColorStateList.valueOf(map(c.getDefaultColor())));

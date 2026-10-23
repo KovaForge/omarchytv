@@ -8,7 +8,7 @@
     android:background="@drawable/workspace_bg"
     android:textColor="@drawable/workspace_text"
     android:textSize="12sp"
-    android:fontFamily="@font/caskaydia"
+   
     android:textStyle="bold"
     android:focusable="false"
     android:importantForAccessibility="no" />

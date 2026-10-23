@@ -4,10 +4,11 @@ import android.app.IntentService;
 import android.content.Context;
 import android.content.Intent;
 
+import java.io.ByteArrayOutputStream;
 import java.io.File;
+import java.io.FileInputStream;
 import java.io.FileOutputStream;
 import java.nio.charset.StandardCharsets;
-import java.nio.file.Files;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -60,7 +61,7 @@ public final class Watchdog {
     static List<Long> recent(Context c, long now) {
         List<Long> l = new ArrayList<>();
         try {
-            for (String s : new String(Files.readAllBytes(file(c).toPath()), StandardCharsets.UTF_8).split("\n")) {
+            for (String s : readText(file(c)).split("\n")) {
                 try {
                     long at = Long.parseLong(s.trim());
                     if (at <= now && now - at < WINDOW) l.add(at);
@@ -74,6 +75,16 @@ public final class Watchdog {
 
     private static File file(Context c) {
         return new File(c.getFilesDir(), "launcher-crashes.txt");
+    }
+
+    /** java.nio.file.Files is API 26. The crash log is a handful of timestamps. */
+    private static String readText(File f) throws java.io.IOException {
+        try (FileInputStream in = new FileInputStream(f); ByteArrayOutputStream out = new ByteArrayOutputStream()) {
+            byte[] buf = new byte[256];
+            int n;
+            while ((n = in.read(buf)) >= 0) out.write(buf, 0, n);
+            return new String(out.toByteArray(), StandardCharsets.UTF_8);
+        }
     }
 
     /** Runs in ":watchdog". */

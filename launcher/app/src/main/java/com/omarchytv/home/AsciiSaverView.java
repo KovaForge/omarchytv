@@ -75,7 +75,7 @@ public class AsciiSaverView extends View {
         }
         Typeface tf;
         try {
-            tf = getResources().getFont(R.font.caskaydia);
+            tf = Fonts.get(getContext());
         } catch (Exception e) {
             tf = Typeface.MONOSPACE;
         }

@@ -4,7 +4,7 @@ import java.math.BigInteger;
 import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
 import java.security.SecureRandom;
-import java.util.Base64;
+import java.util.Arrays;
 
 import javax.crypto.Mac;
 import javax.crypto.spec.SecretKeySpec;
@@ -37,16 +37,94 @@ public final class LinkCrypto {
     }
 
     // ---- encodings ---------------------------------------------------------------------------------
+    // java.util.Base64 is API 26. These match the basic and URL encoders (no newlines) so the JVM
+    // vectors and Android 6 use the same bytes. LinkCrypto stays free of android.* for the unit tests.
+
+    private static final char[] STD = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/".toCharArray();
+    private static final char[] URL = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-_".toCharArray();
+    private static final int[] STD_DEC = new int[128];
+    private static final int[] URL_DEC = new int[128];
+
+    static {
+        Arrays.fill(STD_DEC, -1);
+        Arrays.fill(URL_DEC, -1);
+        for (int i = 0; i < 64; i++) {
+            STD_DEC[STD[i]] = i;
+            URL_DEC[URL[i]] = i;
+        }
+    }
+
+    /** Standard base64 with padding, no line breaks (java.util.Base64.getEncoder()). */
+    public static String b64(byte[] data) {
+        return encode(data, STD, true);
+    }
+
+    /** Standard base64. Throws IllegalArgumentException on garbage. */
+    public static byte[] unb64(String text) {
+        if (text == null) throw new IllegalArgumentException("null");
+        return decode(text, STD_DEC);
+    }
 
     public static String b64u(byte[] data) {
-        return Base64.getUrlEncoder().withoutPadding().encodeToString(data);
+        return encode(data, URL, false);
     }
 
     /** Decodes base64url with or without padding; throws IllegalArgumentException on garbage. */
     public static byte[] unb64u(String text) {
         String t = text == null ? "" : text.trim();
         while (t.endsWith("=")) t = t.substring(0, t.length() - 1);
-        return Base64.getUrlDecoder().decode(t);
+        return decode(t, URL_DEC);
+    }
+
+    private static String encode(byte[] data, char[] alphabet, boolean pad) {
+        if (data == null) throw new NullPointerException();
+        StringBuilder out = new StringBuilder(((data.length + 2) / 3) * 4);
+        int i = 0;
+        while (i + 3 <= data.length) {
+            int n = ((data[i] & 0xff) << 16) | ((data[i + 1] & 0xff) << 8) | (data[i + 2] & 0xff);
+            out.append(alphabet[(n >>> 18) & 63]);
+            out.append(alphabet[(n >>> 12) & 63]);
+            out.append(alphabet[(n >>> 6) & 63]);
+            out.append(alphabet[n & 63]);
+            i += 3;
+        }
+        if (i < data.length) {
+            int rem = data.length - i;
+            int n = (data[i] & 0xff) << 16;
+            if (rem == 2) n |= (data[i + 1] & 0xff) << 8;
+            out.append(alphabet[(n >>> 18) & 63]);
+            out.append(alphabet[(n >>> 12) & 63]);
+            if (rem == 2) out.append(alphabet[(n >>> 6) & 63]);
+            else if (pad) out.append('=');
+            if (pad) out.append('=');
+        }
+        return out.toString();
+    }
+
+    private static byte[] decode(String s, int[] table) {
+        int end = s.length();
+        int pad = 0;
+        while (end > 0 && s.charAt(end - 1) == '=') {
+            pad++;
+            end--;
+        }
+        if (pad > 2 || end % 4 == 1) throw new IllegalArgumentException("bad base64");
+        int outLen = end * 6 / 8;
+        byte[] out = new byte[outLen];
+        int buffer = 0, bits = 0, o = 0;
+        for (int i = 0; i < end; i++) {
+            char c = s.charAt(i);
+            int v = c < 128 ? table[c] : -1;
+            if (v < 0) throw new IllegalArgumentException("bad base64");
+            buffer = (buffer << 6) | v;
+            bits += 6;
+            if (bits >= 8) {
+                bits -= 8;
+                out[o++] = (byte) ((buffer >> bits) & 0xff);
+            }
+        }
+        if (o != outLen) throw new IllegalArgumentException("bad base64");
+        return out;
     }
 
     public static String hex(byte[] b) {

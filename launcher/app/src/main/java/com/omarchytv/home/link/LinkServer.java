@@ -149,8 +149,15 @@ public final class LinkServer {
     private final Object castLock = new Object();
     private String castId, castFileSha;
     private boolean castActive;
-    /** Test hook: called with "METHOD path bodyLength" after a request authenticated. */
-    volatile java.util.function.Consumer<String> requestLog;
+    /**
+     * Test hook: called with "METHOD path bodyLength" after a request authenticated.
+     * A local interface, because {@code java.util.function.Consumer} is API 24.
+     */
+    public interface RequestLog {
+        void line(String line);
+    }
+
+    volatile RequestLog requestLog;
 
     private static final class Pending {
         String id, pcId, pcName;
@@ -586,8 +593,8 @@ public final class LinkServer {
         // ---- authenticated from here
         Auth a = authenticate(req);
         if (a.error != null) return a.error;
-        java.util.function.Consumer<String> rl = requestLog;
-        if (rl != null) rl.accept(req.method + " " + path + " " + req.body.length);
+        RequestLog rl = requestLog;
+        if (rl != null) rl.line(req.method + " " + path + " " + req.body.length);
         long retry = limited(req.peer + "|auth", 20, 1000);
         if (retry == 0) {
             String bucket = wallpaperPut ? "wallpaper" : "PUT".equals(req.method) && ("/v1/widgets".equals(path)
@@ -641,7 +648,14 @@ public final class LinkServer {
         if (!limits) return 0;
         long t = System.currentTimeMillis();
         synchronized (rates) {
-            if (rates.size() > 2048) rates.entrySet().removeIf(e -> t - e.getValue()[0] > 60_000);
+            if (rates.size() > 2048) {
+                // Map.removeIf is API 24. Android 6 needs the iterator.
+                Iterator<Map.Entry<String, long[]>> it = rates.entrySet().iterator();
+                while (it.hasNext()) {
+                    Map.Entry<String, long[]> e = it.next();
+                    if (t - e.getValue()[0] > 60_000) it.remove();
+                }
+            }
             long[] w = rates.get(key);
             if (w == null || t - w[0] >= windowMs) {
                 rates.put(key, new long[]{t, 1});
@@ -1440,7 +1454,7 @@ public final class LinkServer {
         try {
             byte[] d = java.security.MessageDigest.getInstance("SHA-1")
                     .digest((key + "258EAFA5-E914-47DA-95CA-C5AB0DC85B11").getBytes(StandardCharsets.ISO_8859_1));
-            return java.util.Base64.getEncoder().encodeToString(d);
+            return LinkCrypto.b64(d);
         } catch (Exception e) {
             throw new IllegalStateException(e);
         }

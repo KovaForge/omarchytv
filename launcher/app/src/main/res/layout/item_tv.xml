@@ -39,7 +39,7 @@
                 android:text="@string/tv_tile"
                 android:textColor="@color/tn_fg_dim"
                 android:textSize="20sp"
-                android:fontFamily="@font/caskaydia"
+               
 
                 android:singleLine="true" />
 
@@ -50,7 +50,7 @@
                 android:text="@string/tv_tile_hint"
                 android:textColor="@color/text_dim"
                 android:textSize="13sp"
-                android:fontFamily="@font/caskaydia"
+               
                 android:singleLine="true"
                 android:ellipsize="end" />
         </LinearLayout>

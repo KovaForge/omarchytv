@@ -1,0 +1,57 @@
+# UNTESTED. Do not run this list until you have checked every package on YOUR set.
+# Sony KD-55X8500C and KD-49X8300C (BRAVIA_ATV, 2015, MediaTek).
+# Shipped with Android 5.0. Public notes say they were updated to Android 6.0; some regions
+# may have reached Android 7.0. This file has not been tried on either model.
+# Adapted conservatively from examples/sony-kd55xe9005/debloat.txt (2017 BRAVIA_ATV2).
+# Package names differ by year. If a name is not installed, skip it.
+#
+# Everything here is DISABLED (pm disable-user --user 0), never uninstalled.
+# One package at a time. Confirm Home, the remote, HDMI and Live TV after each one.
+# An Apple TV (or any HDMI source) needs the input stack left alone.
+#
+# KEEP, do not add these to the list, even if a newer Sony example disables something similar:
+#   com.sony.dtv.tvx and any other Live TV / tuner activity
+#   com.mediatek.*  (including com.mediatek.wwtv.tvcenter and mtktvapi)
+#   anything with tvinput, hdmi, cec, braviasync, input, remote or sync in the name
+#   tvinput.*, braviasync*, remotepairing, rcpowerkey, uinputservice, imeproxy
+#   sonysystemservice, settingsprovider, timers, HDMI-CEC, input switching
+#   com.sony.dtv.discovery (the name can mean device discovery)
+#   com.sony.dtv.bivlinfo, com.sony.dtv.da.service, com.qterics.da.product
+#   com.sony.dtv.b2b.vendorprotocol (vendor protocol; may sit on HDMI/CEC)
+#   com.sony.dtv.tvlaunchercustomizer (stock home fallback)
+#   com.sony.dtv.smartmediaapp
+#   com.android.systemui, com.android.shell, com.android.providers.*
+#   com.google.android.gms, com.google.android.gsf, com.android.vending
+#   com.android.tv.settings, input methods, com.google.android.katniss (mic key)
+#
+# The names below are promo, demo, bugreport and unused store apps from the 2017 example.
+# They are not Sony system services and not TV-input packages. Still untested on 2015.
+
+# Ads / recommendations / shop demo
+tv.samba.ssm
+com.sony.dtv.sonyselect
+com.sony.dtv.promos
+com.google.android.tvrecommendations
+android.autoinstalls.config.sony.bravia
+com.sony.dtv.demomode
+com.sony.dtv.demosupport
+com.sony.dtv.multiscreendemo
+
+# Bug reports
+com.sony.dtv.sonybugreportsys
+com.google.android.tv.bugreportsender
+com.google.android.feedback
+
+# Help apps (not the remote, not inputs)
+com.sony.dtv.customersupport
+com.sony.dtv.smarthelp
+com.sony.dtv.imanual
+
+# Preinstalled apps you may still want. Comment out any you use.
+com.google.android.youtube.tvmusic
+com.google.android.videos
+com.google.android.play.games
+com.sony.dtv.osat.music
+
+# Only after OmarchyTV is the screensaver you actually use.
+com.google.android.backdrop

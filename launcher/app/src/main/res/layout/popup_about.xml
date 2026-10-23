@@ -16,6 +16,6 @@
         android:layout_height="wrap_content"
         android:textColor="@color/tn_fg_dim"
         android:textSize="11sp"
-        android:fontFamily="@font/caskaydia"
+       
         android:lineSpacingMultiplier="1.15" />
 </ScrollView>

@@ -8,7 +8,7 @@ android {
 
     defaultConfig {
         applicationId 'com.omarchytv.home'
-        minSdk 26
+        minSdk 23
         targetSdk 34
         versionCode 18
         versionName '2.10.2-omarchytv'
@@ -42,6 +42,7 @@ android {
 }
 
 dependencies {
+    implementation 'androidx.core:core:1.13.1'
     implementation 'androidx.recyclerview:recyclerview:1.3.2'
     implementation 'androidx.dynamicanimation:dynamicanimation:1.0.0'
     // Send to TV player (PROTOCOL.md Cast): progressive MP4/MKV/WebM/MPEG-TS over http(s) and local files.

@@ -80,6 +80,7 @@ public class MainActivity extends Activity implements AppAdapter.TileListener, T
 
     private final Handler handler = new Handler(Looper.getMainLooper());
     /** Refreshes the network pill when the connection changes: at boot Wi-Fi often connects after Home is shown. */
+    private Networks.Registration networkReg = Networks.Registration.NONE;
     private final ConnectivityManager.NetworkCallback networkCallback = new ConnectivityManager.NetworkCallback() {
         @Override
         public void onAvailable(@NonNull Network network) {
@@ -144,8 +145,10 @@ public class MainActivity extends Activity implements AppAdapter.TileListener, T
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
+        Fonts.install(this);
         Watchdog.install(this);
         setContentView(R.layout.activity_main);
+        Fonts.apply(getWindow().getDecorView());
         Theme.apply(getWindow().getDecorView());
         {   // Move-mode hint: themed bg with the Hyprland "dragging" orange border (stroke colours can't be remapped from XML).
             android.graphics.drawable.GradientDrawable hb = new android.graphics.drawable.GradientDrawable();
@@ -274,7 +277,7 @@ public class MainActivity extends Activity implements AppAdapter.TileListener, T
         });
 
         ConnectivityManager cm = getSystemService(ConnectivityManager.class);
-        if (cm != null) cm.registerDefaultNetworkCallback(networkCallback);
+        networkReg = Networks.listen(this, cm, networkCallback, handler, this::updateWifiLabel);
         // Omarchy Link (TV side): LAN server + mDNS, lives with the launcher process.
         OmarchyLink.start(this);
         OmarchyLink.addListener(linkListener);
@@ -491,7 +494,7 @@ public class MainActivity extends Activity implements AppAdapter.TileListener, T
         home.bind(LauncherConfig.get(this), adapter);
     }
 
-    /** Workspace 2 · tv: the TV (Live TV app, last channel) and the connected HDMI inputs, CEC name when known. */
+    /** Workspace 2 · tv: the TV (Live TV app, last channel) and the HDMI inputs, CEC name when the OS has one. */
     private List<HomeV29.Source> tvSources() {
         List<HomeV29.Source> out = new ArrayList<>();
         if (liveTvIntent() != null) out.add(new HomeV29.Source("TV", str(R.string.live_tv), R.drawable.ln_monitor, this::onTvClick));
@@ -503,38 +506,156 @@ public class MainActivity extends Activity implements AppAdapter.TileListener, T
         } catch (RuntimeException e) {
             return out;
         }
-        int ports = 0, connected = 0;
-        for (TvInputInfo info : all) {
-            if (!info.isPassthroughInput() || info.getType() != TvInputInfo.TYPE_HDMI || info.getParentId() != null) continue;
-            ports++;
-            if (tim.getInputState(info.getId()) == TvInputManager.INPUT_STATE_CONNECTED) connected++;
+        List<TvInputInfo> hdmi = new ArrayList<>();
+        for (TvInputInfo info : all) if (isHdmiPort(info)) hdmi.add(info);
+        Collections.sort(hdmi, (a, b) -> String.valueOf(safeLabel(a)).compareToIgnoreCase(String.valueOf(safeLabel(b))));
+        int ports = hdmi.size(), connected = 0;
+        int[] states = new int[ports];
+        String[] cecs = new String[ports];
+        for (int i = 0; i < ports; i++) {
+            states[i] = inputState(tim, hdmi.get(i).getId());
+            if (states[i] == TvInputManager.INPUT_STATE_CONNECTED) connected++;
+            cecs[i] = cecName(tim, all, hdmi.get(i));
         }
         boolean bogus = ports > 1 && connected == ports;   // Sony: every port "connected"
-        List<TvInputInfo> hdmi = new ArrayList<>();
-        for (TvInputInfo info : all) {
-            if (info.isPassthroughInput() && info.getType() == TvInputInfo.TYPE_HDMI && info.getParentId() == null) hdmi.add(info);
+        int shown = 0;
+        for (int i = 0; i < ports; i++) {
+            if (!bogus && states[i] == TvInputManager.INPUT_STATE_DISCONNECTED && cecs[i] == null) continue;
+            shown++;
         }
-        Collections.sort(hdmi, (a, b) -> String.valueOf(a.loadLabel(this)).compareToIgnoreCase(String.valueOf(b.loadLabel(this))));
-        for (TvInputInfo port : hdmi) {
-            String cec = null;
-            for (TvInputInfo c : all) {   // HDMI-CEC devices are child inputs of their port
-                if (port.getId().equals(c.getParentId())) {
-                    CharSequence l = c.loadLabel(this);
-                    if (l != null) cec = l.toString();
-                    if (tim.getInputState(c.getId()) == TvInputManager.INPUT_STATE_CONNECTED) break;
-                }
-            }
-            int state = tim.getInputState(port.getId());
-            if (!bogus && state == TvInputManager.INPUT_STATE_DISCONNECTED && cec == null) continue;   // only connected inputs
-            CharSequence l = port.loadLabel(this);
-            String label = l == null ? port.getId() : l.toString();
+        // Android 6 often reports a useless state. Still list every HDMI port so an Apple TV can be selected.
+        boolean showAll = shown == 0;
+        for (int i = 0; i < ports; i++) {
+            if (!showAll && !bogus && states[i] == TvInputManager.INPUT_STATE_DISCONNECTED && cecs[i] == null) continue;
+            TvInputInfo port = hdmi.get(i);
+            String label = safeLabel(port);
+            if (label == null || label.isEmpty()) label = port.getId();
             if (!label.toUpperCase(java.util.Locale.ROOT).contains("HDMI")) label = "HDMI " + label;
             final String id = port.getId();
-            out.add(new HomeV29.Source(cec != null ? cec : label, cec != null ? label : "", R.drawable.ln_input,
-                    () -> open(new Intent(Intent.ACTION_VIEW).setDataAndType(
-                            TvContract.buildChannelUriForPassthroughInput(id), "vnd.android.cursor.item/channel"))));
+            final String owner = inputPackage(port);
+            String title = cecs[i] != null ? cecs[i] : label;
+            String sub = cecs[i] != null ? label : "";
+            out.add(new HomeV29.Source(title, sub, R.drawable.ln_input, () -> openPassthrough(id, owner)));
         }
         return out;
+    }
+
+    /**
+     * A physical HDMI port. {@code getParentId} (CEC children such as "Apple TV") is API 24, so on Android 6
+     * every passthrough HDMI input is a port. A port whose type is not TYPE_HDMI still counts when its label
+     * says HDMI: some 2015 MediaTek builds mis-tag the port.
+     */
+    private static boolean hdmiType(TvInputInfo info) {
+        try {
+            return info != null && info.getType() == TvInputInfo.TYPE_HDMI;
+        } catch (RuntimeException e) {
+            return false;
+        }
+    }
+
+    private static boolean passthrough(TvInputInfo info) {
+        try {
+            return info != null && info.isPassthroughInput();
+        } catch (RuntimeException e) {
+            return false;
+        }
+    }
+
+    private boolean isHdmiPort(TvInputInfo info) {
+        try {
+            if (info == null || !info.isPassthroughInput()) return false;
+            if (parentId(info) != null) return false;
+            if (info.getType() == TvInputInfo.TYPE_HDMI) return true;
+            String label = safeLabel(info);
+            return label != null && label.toUpperCase(java.util.Locale.ROOT).contains("HDMI");
+        } catch (RuntimeException e) {
+            return false;
+        }
+    }
+
+    /** Null on Android 6. CEC device names need the parent/child inputs added in API 24. */
+    private static String parentId(TvInputInfo info) {
+        if (android.os.Build.VERSION.SDK_INT < 24 || info == null) return null;
+        try {
+            return info.getParentId();
+        } catch (RuntimeException e) {
+            return null;
+        }
+    }
+
+    /** CEC product name (API 24+), or null. The port label is used when the TV has no child input. */
+    private String cecName(TvInputManager tim, List<TvInputInfo> all, TvInputInfo port) {
+        if (android.os.Build.VERSION.SDK_INT < 24 || port == null) return null;
+        String name = null;
+        try {
+            for (TvInputInfo c : all) {
+                if (c == null || !port.getId().equals(parentId(c))) continue;
+                CharSequence l = c.loadLabel(this);
+                if (l != null && l.length() > 0) name = l.toString();
+                if (inputState(tim, c.getId()) == TvInputManager.INPUT_STATE_CONNECTED) break;
+            }
+        } catch (RuntimeException ignored) {
+        }
+        return name;
+    }
+
+    private static int inputState(TvInputManager tim, String id) {
+        try {
+            return tim.getInputState(id);
+        } catch (RuntimeException e) {
+            return -1;
+        }
+    }
+
+    private String safeLabel(TvInputInfo info) {
+        try {
+            CharSequence l = info.loadLabel(this);
+            return l == null ? null : l.toString();
+        } catch (RuntimeException e) {
+            return null;
+        }
+    }
+
+    private static String inputPackage(TvInputInfo info) {
+        try {
+            if (info.getServiceInfo() != null && info.getServiceInfo().packageName != null) {
+                return info.getServiceInfo().packageName;
+            }
+        } catch (RuntimeException ignored) {
+        }
+        return null;
+    }
+
+    /**
+     * Switch the TV to a passthrough input (HDMI). {@code TvContract.buildChannelUriForPassthroughInput}
+     * has existed since API 21. Android 6 Sony builds sometimes only resolve that URI for the tuner app,
+     * so try the input's own package and the Live TV package before giving up. A miss shows a toast.
+     */
+    private void openPassthrough(String inputId, String ownerPackage) {
+        try {
+            android.net.Uri uri = TvContract.buildChannelUriForPassthroughInput(inputId);
+            Intent i = new Intent(Intent.ACTION_VIEW)
+                    .setDataAndType(uri, "vnd.android.cursor.item/channel")
+                    .putExtra(TvInputInfo.EXTRA_INPUT_ID, inputId)
+                    .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+            if (startIfResolves(i)) return;
+            if (ownerPackage != null && !ownerPackage.isEmpty() && startIfResolves(new Intent(i).setPackage(ownerPackage))) return;
+            if (!liveTvPkg.isEmpty() && startIfResolves(new Intent(i).setPackage(liveTvPkg))) return;
+            Intent live = liveTvIntent();
+            if (live != null && live.getPackage() != null && startIfResolves(new Intent(i).setPackage(live.getPackage()))) return;
+        } catch (RuntimeException ignored) {
+        }
+        Toast.makeText(this, R.string.not_available, Toast.LENGTH_SHORT).show();
+    }
+
+    private boolean startIfResolves(Intent i) {
+        try {
+            if (i.resolveActivity(getPackageManager()) == null) return false;
+            startActivity(i);
+            return true;
+        } catch (ActivityNotFoundException e) {
+            return false;
+        }
     }
 
     /** Workspace 5 · sistema rows. */
@@ -640,7 +761,7 @@ public class MainActivity extends Activity implements AppAdapter.TileListener, T
         new android.app.AlertDialog.Builder(this).setTitle(R.string.v29_wx_search).setView(q)
                 .setPositiveButton(android.R.string.ok, (d, w) -> {
                     String name = q.getText().toString();
-                    String lang = getResources().getConfiguration().getLocales().get(0).getLanguage();
+                    String lang = uiLanguage(this);
                     new Thread(() -> {
                         List<org.json.JSONObject> res = Weather.searchCity(name, lang);
                         runOnUiThread(() -> cityResults(res));
@@ -881,8 +1002,7 @@ public class MainActivity extends Activity implements AppAdapter.TileListener, T
     @Override
     protected void onDestroy() {
         super.onDestroy();
-        ConnectivityManager cm = getSystemService(ConnectivityManager.class);
-        if (cm != null) cm.unregisterNetworkCallback(networkCallback);
+        if (networkReg != null) networkReg.close();
         OmarchyLink.removeListener(linkListener);
     }
 
@@ -1216,47 +1336,60 @@ public class MainActivity extends Activity implements AppAdapter.TileListener, T
         boolean sawNonHdmi = false;
         String tunerId = null;
         if (tim != null) {
-            List<TvInputInfo> inputs = new ArrayList<>(tim.getTvInputList());
+            List<TvInputInfo> inputs = new ArrayList<>();
+            try {
+                inputs.addAll(tim.getTvInputList());
+            } catch (RuntimeException ignored) {
+            }
             // HDMI ports first in port order, then AV and the rest.
             Collections.sort(inputs, (a, b) -> {
-                boolean ha = a.getType() == TvInputInfo.TYPE_HDMI, hb = b.getType() == TvInputInfo.TYPE_HDMI;
+                boolean ha = hdmiType(a), hb = hdmiType(b);
                 if (ha != hb) return ha ? -1 : 1;
-                return String.valueOf(a.loadLabel(this)).compareToIgnoreCase(String.valueOf(b.loadLabel(this)));
+                return String.valueOf(safeLabel(a)).compareToIgnoreCase(String.valueOf(safeLabel(b)));
             });
             // Some TVs (Sony) report every HDMI port as connected whether or not anything is plugged in,
             // so drop the HDMI status then. A TV with every port really in use loses it too.
             int hdmiPorts = 0, hdmiConnected = 0;
             for (TvInputInfo info : inputs) {
-                if (!info.isPassthroughInput() || info.getType() != TvInputInfo.TYPE_HDMI) continue;
+                if (!isHdmiPort(info) && !(passthrough(info) && hdmiType(info))) continue;
                 hdmiPorts++;
-                if (tim.getInputState(info.getId()) == TvInputManager.INPUT_STATE_CONNECTED) hdmiConnected++;
+                if (inputState(tim, info.getId()) == TvInputManager.INPUT_STATE_CONNECTED) hdmiConnected++;
             }
             boolean hdmiStateBogus = hdmiPorts > 1 && hdmiConnected == hdmiPorts;
             for (TvInputInfo info : inputs) {
-                if (info.getType() == TvInputInfo.TYPE_TUNER
-                        && (info.getServiceInfo().applicationInfo.flags & ApplicationInfo.FLAG_SYSTEM) != 0
-                        && (tunerId == null || info.getId().compareTo(tunerId) < 0)) {
-                    tunerId = info.getId();
+                try {
+                    android.content.pm.ServiceInfo svc = info.getServiceInfo();
+                    if (info.getType() == TvInputInfo.TYPE_TUNER && svc != null && svc.applicationInfo != null
+                            && (svc.applicationInfo.flags & ApplicationInfo.FLAG_SYSTEM) != 0
+                            && (tunerId == null || info.getId().compareTo(tunerId) < 0)) {
+                        tunerId = info.getId();
+                    }
+                    if (!passthrough(info)) continue;
+                    // CEC children (API 24+) stay in this menu; Android 6 has no parent id to hide them by.
+                    String label = safeLabel(info);
+                    if (label == null || label.isEmpty()) label = info.getId();
+                    boolean hdmi = hdmiType(info) || label.toUpperCase(java.util.Locale.ROOT).contains("HDMI");
+                    if (hdmi && !label.toUpperCase(java.util.Locale.ROOT).contains("HDMI")) label = "HDMI " + label;
+                    final String id = info.getId();
+                    final String owner = inputPackage(info);
+                    int state = hdmi && hdmiStateBogus ? -1 : inputState(tim, id);
+                    if (!hdmi && rows.getChildCount() > 0 && !sawNonHdmi) addSeparator(rows);
+                    if (!hdmi) sawNonHdmi = true;
+                    addInputRow(rows, popup, hdmi ? R.drawable.ic_input : R.drawable.ic_av, label, state,
+                            () -> openPassthrough(id, owner));
+                } catch (RuntimeException ignored) {
                 }
-                if (!info.isPassthroughInput()) continue;
-                CharSequence l = info.loadLabel(this);
-                String label = l == null ? info.getId() : l.toString();
-                boolean hdmi = info.getType() == TvInputInfo.TYPE_HDMI;
-                if (hdmi && !label.toUpperCase().contains("HDMI")) label = "HDMI " + label;
-                final String id = info.getId();
-                int state = hdmi && hdmiStateBogus ? -1 : tim.getInputState(id);
-                if (!hdmi && rows.getChildCount() > 0 && !sawNonHdmi) addSeparator(rows);
-                if (!hdmi) sawNonHdmi = true;
-                addInputRow(rows, popup, hdmi ? R.drawable.ic_input : R.drawable.ic_av, label, state,
-                        () -> open(new Intent(Intent.ACTION_VIEW).setDataAndType(
-                                TvContract.buildChannelUriForPassthroughInput(id), "vnd.android.cursor.item/channel")));
             }
         }
-        Intent liveTv = liveTvPkg.isEmpty() ? null : getPackageManager().getLeanbackLaunchIntentForPackage(liveTvPkg);
+        Intent liveTv = liveTvIntent();
         if (liveTv != null && tunerId != null) {
-            liveTv = new Intent(Intent.ACTION_VIEW)
+            Intent tuned = new Intent(Intent.ACTION_VIEW)
                     .setDataAndType(TvContract.buildChannelUriForPassthroughInput(tunerId), "vnd.android.cursor.item/channel")
-                    .setPackage(liveTvPkg);
+                    .putExtra(TvInputInfo.EXTRA_INPUT_ID, tunerId)
+                    .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+            String pkg = liveTv.getPackage() != null ? liveTv.getPackage() : liveTvPkg;
+            if (pkg != null && !pkg.isEmpty()) tuned.setPackage(pkg);
+            if (tuned.resolveActivity(getPackageManager()) != null) liveTv = tuned;
         }
         if (liveTv != null) {
             if (rows.getChildCount() > 0) addSeparator(rows);
@@ -2889,19 +3022,30 @@ public class MainActivity extends Activity implements AppAdapter.TileListener, T
     }
 
     /**
-     * The TV's own Live TV app as its launcher would start it (Sony: com.sony.dtv.tvx), so it opens on the
-     * last channel watched. Falls back to any Live TV handler (TvContract.Channels content). Null when the
-     * TV has neither (e.g. an emulator or a box without a tuner).
+     * The TV's own Live TV app as its launcher would start it (2016+ Sony: com.sony.dtv.tvx), so it opens on the
+     * last channel watched. 2015 BRAVIA_ATV sets often have no tvx; try the MediaTek tuner next, then any app
+     * that handles TvContract channels. Null when the TV has neither (an emulator, or a box without a tuner).
      */
     private Intent liveTvIntent() {
         PackageManager pm = getPackageManager();
-        if (!liveTvPkg.isEmpty()) {
-            Intent i = pm.getLeanbackLaunchIntentForPackage(liveTvPkg);
-            if (i == null) i = pm.getLaunchIntentForPackage(liveTvPkg);
-            if (i != null) return i;
+        String[] pkgs = liveTvPkg.isEmpty()
+                ? new String[]{"com.mediatek.wwtv.tvcenter"}
+                : new String[]{liveTvPkg, "com.mediatek.wwtv.tvcenter"};
+        for (String pkg : pkgs) {
+            if (pkg == null || pkg.isEmpty()) continue;
+            try {
+                Intent i = pm.getLeanbackLaunchIntentForPackage(pkg);
+                if (i == null) i = pm.getLaunchIntentForPackage(pkg);
+                if (i != null) return i;
+            } catch (RuntimeException ignored) {
+            }
         }
-        Intent any = new Intent(Intent.ACTION_VIEW, TvContract.Channels.CONTENT_URI);
-        return any.resolveActivity(pm) != null ? any : null;
+        try {
+            Intent any = new Intent(Intent.ACTION_VIEW, TvContract.Channels.CONTENT_URI);
+            return any.resolveActivity(pm) != null ? any : null;
+        } catch (RuntimeException e) {
+            return null;
+        }
     }
 
     /** Focus any position in the grid (apps or the TV tile). */
@@ -2989,7 +3133,12 @@ public class MainActivity extends Activity implements AppAdapter.TileListener, T
     }
 
     /** Writes the effective list once (so removing the default X sticks), then edits it. */
-    private void editWebApps(java.util.function.Consumer<org.json.JSONArray> edit) {
+    /** {@code java.util.function.Consumer} is API 24. */
+    private interface WebAppsEdit {
+        void apply(org.json.JSONArray apps) throws Exception;
+    }
+
+    private void editWebApps(WebAppsEdit edit) {
         builtWith = LauncherConfig.update(this, j -> {
             org.json.JSONArray a = j.optJSONArray("webapps");
             if (a == null) {
@@ -2998,7 +3147,7 @@ public class MainActivity extends Activity implements AppAdapter.TileListener, T
                     a.put(new org.json.JSONObject().put("id", w.id).put("name", w.name).put("url", w.url).put("ua", w.ua));
                 }
             }
-            edit.accept(a);
+            edit.apply(a);
             j.put("webapps", a);
         });
         reloadApps();
@@ -3128,8 +3277,19 @@ public class MainActivity extends Activity implements AppAdapter.TileListener, T
     }
 
     static String speechLanguage(Context c) {
-        String lang = c.getResources().getConfiguration().getLocales().get(0).getLanguage();
+        String lang = uiLanguage(c);
         return "it".equals(lang) ? "it-IT" : "de".equals(lang) ? "de-DE" : "en-US";
+    }
+
+    /** {@code Configuration.getLocales} is API 24. Android 6 has the single {@code locale} field. */
+    @SuppressWarnings("deprecation")
+    static String uiLanguage(Context c) {
+        android.content.res.Configuration cfg = c.getResources().getConfiguration();
+        if (android.os.Build.VERSION.SDK_INT >= 24) {
+            android.os.LocaleList list = cfg.getLocales();
+            if (list != null && !list.isEmpty()) return list.get(0).getLanguage();
+        }
+        return cfg.locale == null ? "" : cfg.locale.getLanguage();
     }
 
     private void typedSearch() {

@@ -317,7 +317,7 @@ public final class OmarchyLink implements LinkServer.Host {
         nsd = (NsdManager) app.getSystemService(Context.NSD_SERVICE);
         ConnectivityManager cm = app.getSystemService(ConnectivityManager.class);
         if (cm != null) {
-            cm.registerDefaultNetworkCallback(new ConnectivityManager.NetworkCallback() {
+            Networks.listen(app, cm, new ConnectivityManager.NetworkCallback() {
                 @Override
                 public void onLinkPropertiesChanged(Network network, LinkProperties lp) {
                     bg.execute(OmarchyLink.this::rebind);
@@ -327,7 +327,7 @@ public final class OmarchyLink implements LinkServer.Host {
                 public void onLost(Network network) {
                     bg.execute(OmarchyLink.this::rebind);
                 }
-            }, main);
+            }, main, () -> bg.execute(OmarchyLink.this::rebind));
         }
         IntentFilter f = new IntentFilter();
         f.addAction(Intent.ACTION_DREAMING_STARTED);

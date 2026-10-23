@@ -48,6 +48,7 @@ public final class CastViewActivity extends Activity implements CastRouter.Surfa
     @Override
     protected void onCreate(Bundle b) {
         super.onCreate(b);
+        Fonts.install(this);
         Theme t = Theme.cur();
         id = getIntent().getStringExtra(CastRouter.EXTRA_ID);
         if (id == null) {
@@ -166,11 +167,17 @@ public final class CastViewActivity extends Activity implements CastRouter.Surfa
         c.setInstanceFollowRedirects(true);   // HttpURLConnection never follows a redirect to another scheme
         c.setRequestProperty("User-Agent", "OmarchyTV");
         try (InputStream in = c.getInputStream()) {
-            if (c.getContentLengthLong() > IMAGE_MAX) throw new IOException("too large");
+            // getContentLengthLong is API 24. 32 MB fits in the int form; drain() stops a lie anyway.
+            if (contentLength(c) > IMAGE_MAX) throw new IOException("too large");
             return drain(in);
         } finally {
             c.disconnect();
         }
+    }
+
+    @SuppressWarnings("deprecation") // getContentLength is the API 23 form of getContentLengthLong
+    private static int contentLength(java.net.HttpURLConnection c) {
+        return c.getContentLength();
     }
 
     private static byte[] drain(InputStream in) throws IOException {

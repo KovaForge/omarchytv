@@ -20,7 +20,6 @@
         <item name="android:tag">control</item>
         <item name="android:textColor">@drawable/pill_text</item>
         <item name="android:textSize">13sp</item>
-        <item name="android:fontFamily">@font/caskaydia</item>
         <item name="android:fontVariationSettings" tools:targetApi="28">\'wght\' 500</item>
         <item name="android:drawablePadding">8dp</item>
         <item name="android:drawableTint">@drawable/pill_text</item>
