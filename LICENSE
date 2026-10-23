@@ -26,3 +26,6 @@ SOFTWARE.
 The Outfit typeface in launcher/app/src/main/res/font/outfit.ttf is copyright
 The Outfit Project Authors and licensed under the SIL Open Font License 1.1,
 see launcher/FONT-LICENSE-OFL.txt.
+
+Fork note: public fork of https://gitlab.com/piermark/omarchytv (MIT).
+Upstream copyright notices above are kept. See NOTICE, THIRD-PARTY.md and FORK-NOTES.md.

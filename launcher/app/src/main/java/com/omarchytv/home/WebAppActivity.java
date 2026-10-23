@@ -79,7 +79,14 @@ public class WebAppActivity extends Activity {
         float d = getResources().getDisplayMetrics().density;
         FrameLayout root = new FrameLayout(this);
         root.setBackgroundColor(Theme.m(0xFF1A1B26));
-        web = new WebView(this);
+        try {
+            web = new WebView(this);
+        } catch (Throwable e) {
+            // 2015 sets sometimes have no usable WebView package. Leave quietly instead of crashing home.
+            Toast.makeText(this, R.string.not_available, Toast.LENGTH_LONG).show();
+            finish();
+            return;
+        }
         root.addView(web, new FrameLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT));
 
         pointer = new View(this);
@@ -96,7 +103,7 @@ public class WebAppActivity extends Activity {
         status.setTextSize(13);
         status.setBackgroundColor(Theme.m(0xE616161E));
         status.setPadding((int) (12 * d), (int) (6 * d), (int) (12 * d), (int) (6 * d));
-        status.setTypeface(getResources().getFont(R.font.caskaydia));
+        status.setTypeface(Fonts.get(this));
         status.setVisibility(View.GONE);
         FrameLayout.LayoutParams slp = new FrameLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT, ViewGroup.LayoutParams.WRAP_CONTENT,
                 Gravity.TOP | Gravity.END);
@@ -121,14 +128,14 @@ public class WebAppActivity extends Activity {
         applyUa();
         web.setWebViewClient(new WebViewClient() {
             @Override
+            public boolean shouldOverrideUrlLoading(WebView view, String url) {
+                // API 23 and older WebViews call this overload. API 24+ prefers WebResourceRequest.
+                return leaveWebView(url == null ? null : Uri.parse(url));
+            }
+
+            @Override
             public boolean shouldOverrideUrlLoading(WebView view, WebResourceRequest req) {
-                String scheme = req.getUrl().getScheme();
-                if ("http".equals(scheme) || "https".equals(scheme)) return false;
-                try {   // intent:, market:, mailto: etc. go to the system (other apps), never run here
-                    startActivity(new Intent(Intent.ACTION_VIEW, req.getUrl()).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK));
-                } catch (Exception ignored) {
-                }
-                return true;
+                return req != null && leaveWebView(req.getUrl());
             }
 
             @Override
@@ -141,6 +148,18 @@ public class WebAppActivity extends Activity {
         if (savedInstanceState != null) web.restoreState(savedInstanceState);
         else web.loadUrl(url);
         checkWebViewVersion();
+    }
+
+    /** http(s) stays in the page. Anything else (intent:, market:, mailto:) goes to the system. */
+    private boolean leaveWebView(Uri uri) {
+        if (uri == null) return true;
+        String scheme = uri.getScheme();
+        if ("http".equals(scheme) || "https".equals(scheme)) return false;
+        try {
+            startActivity(new Intent(Intent.ACTION_VIEW, uri).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK));
+        } catch (Exception ignored) {
+        }
+        return true;
     }
 
     /** Desktop UA: Chrome on Linux (like Omarchy's Chromium web apps); mobile: the WebView default. */

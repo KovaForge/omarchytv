@@ -134,18 +134,6 @@ public final class Agents {
 
     /** Milliseconds since epoch of an ISO-8601 UTC time ("2026-10-19T08:11:58Z", fractions allowed), or -1. */
     public static long isoMs(String iso) {
-        if (iso == null || iso.length() < 19) return -1;
-        try {
-            String t = iso.endsWith("Z") ? iso.substring(0, iso.length() - 1) : iso;
-            int dot = t.indexOf('.');
-            String frac = dot > 0 ? t.substring(dot + 1) : "";
-            if (dot > 0) t = t.substring(0, dot);
-            java.time.LocalDateTime d = java.time.LocalDateTime.parse(t);
-            long ms = d.toInstant(java.time.ZoneOffset.UTC).toEpochMilli();
-            if (!frac.isEmpty()) ms += Long.parseLong((frac + "000").substring(0, 3));
-            return ms;
-        } catch (RuntimeException e) {
-            return -1;
-        }
+        return Iso.utcMillis(iso);
     }
 }

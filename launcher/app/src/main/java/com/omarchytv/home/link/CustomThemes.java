@@ -3,7 +3,9 @@ package com.omarchytv.home.link;
 import org.json.JSONArray;
 import org.json.JSONObject;
 
+import java.io.ByteArrayOutputStream;
 import java.io.File;
+import java.io.FileInputStream;
 import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
@@ -234,11 +236,27 @@ public final class CustomThemes {
     /** Config edit selecting theme {@code name} and its background {@code bg} (no background: keep the wallpaper). */
     public static void select(File linkDir, String name, int bg, JSONObject cfg) throws Exception {
         File dir = new File(root(linkDir), name);
-        byte[] b = java.nio.file.Files.readAllBytes(new File(dir, "theme.json").toPath());
+        byte[] b = readFile(new File(dir, "theme.json"));
         JSONObject t = new JSONObject(new String(b, StandardCharsets.UTF_8));
         t.put("source", "custom");
         cfg.put("theme", t);
         File[] bgs = backgrounds(linkDir, name);
-        if (bgs.length > 0) cfg.put("wallpaper", bgs[Math.floorMod(bg, bgs.length)].getAbsolutePath());
+        if (bgs.length > 0) cfg.put("wallpaper", bgs[floorMod(bg, bgs.length)].getAbsolutePath());
+    }
+
+    /** java.nio.file.Files is API 26. theme.json is small (the upload cap is 64 KB). */
+    private static byte[] readFile(File f) throws IOException {
+        try (InputStream in = new FileInputStream(f); ByteArrayOutputStream out = new ByteArrayOutputStream()) {
+            byte[] buf = new byte[4096];
+            int n;
+            while ((n = in.read(buf)) >= 0) out.write(buf, 0, n);
+            return out.toByteArray();
+        }
+    }
+
+    /** Math.floorMod(int, int) is API 24. m is a background count, so it is positive. */
+    private static int floorMod(int x, int m) {
+        int r = x % m;
+        return r < 0 ? r + m : r;
     }
 }

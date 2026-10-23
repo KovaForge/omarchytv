@@ -29,7 +29,7 @@
         android:textColor="@drawable/pill_text"
         android:duplicateParentState="true"
         android:textSize="14sp"
-        android:fontFamily="@font/caskaydia"
+       
 
         android:singleLine="true" />
 
@@ -47,6 +47,6 @@
         android:textColor="@drawable/pill_text_dim"
         android:duplicateParentState="true"
         android:textSize="11sp"
-        android:fontFamily="@font/caskaydia"
+       
         android:letterSpacing="0.04" />
 </LinearLayout>

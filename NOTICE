@@ -2,6 +2,10 @@ OmarchyTV
 Copyright (c) 2026 Gathin (tv-vibehack / cleanyourtv, MIT)
 Copyright (c) 2026 Marco Porro (OmarchyTV, MIT)
 
+Fork note: this repository is a public fork of https://gitlab.com/piermark/omarchytv (MIT).
+Upstream copyright, LICENSE, this NOTICE and THIRD-PARTY credits are unchanged.
+The fork notes in FORK-NOTES.md describe the Android 6 / 2015 Sony BRAVIA changes.
+
 This product includes third-party software, fonts and artwork:
 - Omarchy logo, icon, theme palettes and wordmark backgrounds - (c) David Heinemeier Hansson, MIT
 - "Liftoff Sunset" wallpaper - Tom Ballard (https://x.com/tcballard), https://github.com/tcballard/omarchy-theme-tokyo-liftoff;

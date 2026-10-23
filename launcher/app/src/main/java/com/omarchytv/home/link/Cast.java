@@ -5,6 +5,7 @@ import org.json.JSONObject;
 import java.io.File;
 import java.net.URI;
 import java.util.Arrays;
+import java.util.Collections;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Locale;
@@ -164,7 +165,8 @@ public final class Cast {
     public static void sweep(File dir, long nowMs, String keep, int maxFiles, long maxBytes) {
         File[] fs = dir == null ? null : dir.listFiles();
         if (fs == null) return;
-        Arrays.sort(fs, (a, b2) -> Long.compare(a.lastModified(), b2.lastModified()));
+        // Arrays.sort(T[], Comparator) is API 24. Collections.sort is on every version we ship.
+        Collections.sort(Arrays.asList(fs), (a, b2) -> Long.compare(a.lastModified(), b2.lastModified()));
         long total = 0;
         int n = 0;
         for (File f : fs) {

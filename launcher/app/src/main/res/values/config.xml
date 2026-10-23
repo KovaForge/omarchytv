@@ -18,11 +18,13 @@
         <item>com.mediatek.wwtv.tvcenter</item>
         <item>com.mitv.gallery</item>
     </string-array>
-    <!-- Sony BRAVIA (e.g. KD-55XE9005): Live TV is com.sony.dtv.tvx. It stays visible as a tile too. -->
+    <!-- Sony BRAVIA 2016+ (e.g. KD-55XE9005): Live TV is com.sony.dtv.tvx. It stays visible as a tile too.
+         2015 BRAVIA_ATV (KD-55X8500C, KD-49X8300C) often has no tvx. The launcher then tries
+         com.mediatek.wwtv.tvcenter, then any app that opens TvContract channels. -->
 
     <!-- The TV's Live TV / tuner app, offered at the end of the Inputs menu. Leave empty to omit. -->
     <string name="live_tv_package" translatable="false">com.sony.dtv.tvx</string>
-    <!-- Xiaomi / MediaTek sets: com.mediatek.wwtv.tvcenter -->
+    <!-- Xiaomi / MediaTek sets, and many 2015 Sony sets: com.mediatek.wwtv.tvcenter -->
 
     <!-- Tiles per row in the grid; the dock always has this many slots. -->
     <integer name="columns">7</integer>

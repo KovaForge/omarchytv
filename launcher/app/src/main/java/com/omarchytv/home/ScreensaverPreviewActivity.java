@@ -23,6 +23,7 @@ public class ScreensaverPreviewActivity extends Activity {
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
+        Fonts.install(this);
         getWindow().addFlags(WindowManager.LayoutParams.FLAG_FULLSCREEN);
         saver = new TteSaver(this);
         saver.window = getWindow();

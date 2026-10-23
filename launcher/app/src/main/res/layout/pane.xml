@@ -19,7 +19,7 @@
         android:layout_height="wrap_content"
         android:textColor="@color/text_dim"
         android:textSize="11sp"
-        android:fontFamily="@font/caskaydia" />
+        />
 
     <TextView
         android:id="@+id/paneBody"
@@ -28,6 +28,6 @@
         android:layout_marginTop="4dp"
         android:textColor="@color/tn_fg"
         android:textSize="12sp"
-        android:fontFamily="@font/caskaydia"
+       
         android:lineSpacingMultiplier="1.1" />
 </LinearLayout>

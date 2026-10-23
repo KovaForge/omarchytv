@@ -299,9 +299,12 @@ public class LinkServerTest {
         assertEquals(400, signed("POST", "/v1/cast", new JSONObject().put("id", "t").put("kind", "text").put("text", big).toString()).status);
         assertEquals(409, signed("POST", "/v1/cast/control", "{\"action\":\"pause\"}").status);   // nothing_playing
 
-        // upload: streamed to the private cache, answered with its sha256
+        // upload: streamed to the private cache, answered with its sha256.
+        // Sniff allowlists by magic bytes and ignores Content-Type, so the body needs a real PNG header.
         byte[] img = new byte[200_000];
         new java.util.Random(7).nextBytes(img);
+        byte[] png = new byte[]{(byte) 0x89, 'P', 'N', 'G', 0x0D, 0x0A, 0x1A, 0x0A};
+        System.arraycopy(png, 0, img, 0, png.length);
         Resp up = signedBytes("PUT", "/v1/cast/file", img, "image/png");
         assertEquals(200, up.status);
         String sha = LinkCrypto.hex(LinkCrypto.sha256(img));

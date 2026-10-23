@@ -53,7 +53,7 @@ public class WordmarkView extends View {
         scramble.setTextSize(cellW * 1.7f);
         scramble.setTextAlign(Paint.Align.CENTER);
         try {
-            scramble.setTypeface(getResources().getFont(R.font.caskaydia));
+            scramble.setTypeface(Fonts.get(context));
         } catch (Exception e) {
             scramble.setTypeface(Typeface.MONOSPACE);
         }

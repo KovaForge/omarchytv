@@ -110,8 +110,23 @@ final class TteSaver {
         });
         w.setWebViewClient(new WebViewClient() {
             @Override
+            public WebResourceResponse shouldInterceptRequest(WebView view, String url) {
+                // Android 6 WebView still calls the String overload. Without it the saver assets never load.
+                try {
+                    return url == null ? null : serve(Uri.parse(url));
+                } catch (RuntimeException e) {
+                    return null;
+                }
+            }
+
+            @Override
             public WebResourceResponse shouldInterceptRequest(WebView view, WebResourceRequest req) {
-                return serve(req.getUrl());
+                return req == null ? null : serve(req.getUrl());
+            }
+
+            @Override
+            public boolean shouldOverrideUrlLoading(WebView view, String url) {
+                return true;   // the saver never navigates
             }
 
             @Override
@@ -124,22 +139,40 @@ final class TteSaver {
 
     /** Minimal WebViewAssetLoader: https://appassets.androidplatform.net/assets/... -> APK assets; nothing else loads. */
     private WebResourceResponse serve(Uri u) {
+        if (u == null) return missingResponse();
         String path = u.getPath();
         if (!HOST.equals(u.getHost()) || path == null || !path.startsWith("/assets/") || path.contains("..")) {
-            return new WebResourceResponse("text/plain", "utf-8", 404, "Not Found", null, null);
+            return missingResponse();
         }
         String rel = path.substring("/assets/".length());
         try {
             InputStream in = ctx.getAssets().open(rel);
             String mime = rel.endsWith(".js") ? "text/javascript" : rel.endsWith(".html") ? "text/html"
                     : rel.endsWith(".ttf") ? "font/ttf" : rel.endsWith(".json") ? "application/json" : "text/plain";
-            WebResourceResponse r = new WebResourceResponse(mime, "utf-8", in);
+            return assetResponse(mime, in);
+        } catch (Exception e) {
+            return missingResponse();
+        }
+    }
+
+    /** Status-code constructor is API 21. If this WebView rejects it, the 3-arg form still delivers the bytes. */
+    private WebResourceResponse assetResponse(String mime, InputStream in) {
+        try {
+            WebResourceResponse r = new WebResourceResponse(mime, "utf-8", 200, "OK", null, in);
             java.util.Map<String, String> hd = new java.util.HashMap<>();
             hd.put("Access-Control-Allow-Origin", "https://" + HOST);
             r.setResponseHeaders(hd);
             return r;
-        } catch (Exception e) {
+        } catch (RuntimeException e) {
+            return new WebResourceResponse(mime, "utf-8", in);
+        }
+    }
+
+    private static WebResourceResponse missingResponse() {
+        try {
             return new WebResourceResponse("text/plain", "utf-8", 404, "Not Found", null, null);
+        } catch (RuntimeException e) {
+            return new WebResourceResponse("text/plain", "utf-8", new java.io.ByteArrayInputStream(new byte[0]));
         }
     }
 
